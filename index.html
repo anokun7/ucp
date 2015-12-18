@@ -27,7 +27,7 @@
 <ul>
 <li>Linux kernel 3.16 or later. (Older kernel versions will work with UCP, but &gt;=3.16 is required if you want to leverage docker's uber cool multi host networking capabilities.)</li>
 <li>Docker version &gt;=1.9 pre-installed on all nodes (Recommend that at least 2 nodes are available)</li>
-<li>Account on Docker Hub (Create one at <a href="https://hub.docker.com/">https://hub.docker.com/</a> if you do not have one)</li>
+<li>Account on Docker Hub (Create an account at <a href="https://hub.docker.com/">https://hub.docker.com/</a> if you do not have one)</li>
 <li>Access to super user mode (sudo or root)</li>
 <li>(Ability to) Open firewall ports (incoming into the UCP master: 443, 2376, 12376, 12379, 12380, 12381, 12382)</li>
 </ul>
@@ -103,6 +103,8 @@ INFO[0023] Login as "admin"/(your admin password) to UCP at https://172.31.39.14
 
 <h3>
 <a id="external-ca" class="anchor" href="#external-ca" aria-hidden="true"><span class="octicon octicon-link"></span></a>External CA</h3>
+
+<p>In many large &amp; federal organizations, it is expected that they have an in-house Certificate Authority and issue organizational CA-signed certificates. In such cases, it may be necessary to integrate UCP with the the external certificates as opposed to the default mode where the UCP server generates its own self-signed certificates. <a href="http://anokun7.github.io/ucp/external-ca">Read more...</a></p>
 
 <h3>
 <a id="external-logging" class="anchor" href="#external-logging" aria-hidden="true"><span class="octicon octicon-link"></span></a>External Logging</h3>
