@@ -31,7 +31,7 @@
 <li>Account on Docker Hub (Create an account at <a href="https://hub.docker.com/">https://hub.docker.com/</a> if you do not have one)</li>
 <li>Access to super user mode (sudo or root)</li>
 <li>(Ability to) Open firewall ports (incoming into the UCP master: 443, 2376, 12376, 12379, 12380, 12381, 12382)</li>
-<li>A CA to sign server certificates. Alternatively, we'll use `openssl` to perform the CA stuff. Other options are cacerts.com, EJBCA etc.</li>
+<li>A CA to sign server certificates. Alternatively, we'll use <code>openssl</code> to perform the CA stuff. Other options are cacerts.com, EJBCA etc.</li>
 </ul>
 
 <h3>
@@ -40,7 +40,7 @@
 <p> In order to use the external CA signed certificates for the UCP controller, we'll have to install UCP in a slightly different manner, which is the focus of this post. To understand how to install UCP in default mode, to use the default built-in certificates / CA, follow <a class="anchor" href="http://anokun7.github.io/ucp" aria-hidden="true">this post</a> instead.</p>
 <a id="setup-ca" class="anchor" href="#setup-ca" aria-hidden="true"><span class="octicon octicon-link"></span></a>Setup CA (using openssl)</h3>
 
-<p>This section deals with the somewhat unrelated to UCP step of setting up a CA and signing server certificates. But in the interests of documentation the entire procedure, I'm using two nodes. One of the nodes will be the dedicated CA server and the other will be used to stand up UCP using certificates signed by the CA server. Also as a personal challenge, I'll be using `openssl` to do the following as part of the CA setup:</p>
+<p>This section deals with the somewhat unrelated to UCP step of setting up a CA and signing server certificates. But in the interests of documentation the entire procedure, I'm using two nodes. One of the nodes will be the dedicated CA server and the other will be used to stand up UCP using certificates signed by the CA server. Also as a personal challenge, I'll be using <code>openssl</code> to do the following as part of the CA setup:</p>
 <ol>
 	<li>Create a CA key pair and use the private key to sign the CA certificate</li>
 	<li>Use the CA to create a key pair for the UCP server, which includes the UCP private key, UCP csr and a signed (by the CA) certificate</li>
@@ -114,12 +114,12 @@ ca.srl                           100%   17     0.0KB/s   00:00
 </code></pre>
 
 <h4>Before installing UCP, setup a named volume to host the certificates and the UCP server's key. Follow the steps below:</h4>
-<p>Use `docker volume` to create a named volume `ucp-server-certs`. This volume will be used to hold the external certificates before starting the installation of the UCP server</p>
+<p>Use <code>docker volume</code> to create a named volume <code>ucp-server-certs</code>. This volume will be used to hold the external certificates before starting the installation of the UCP server</p>
 <pre><code>
 ubuntu@ip-172-31-39-14:~$ docker volume create --name ucp-server-certs
 ucp-server-certs
 </code></pre>
-<p>To determine the `Mountpoint` of the volume just created, use the `docker volume inspect` command as below. This returns a json and the value of the `Mountpoint` attribute is the path where the certificate files should be placed.</p>
+<p>To determine the <code>Mountpoint</code> of the volume just created, use the <code>docker volume inspect</code> command as below. This returns a json and the value of the <code>Mountpoint</code> attribute is the path where the certificate files should be placed.</p>
 <pre><code>
 ubuntu@ip-172-31-39-14:~$ docker volume inspect ucp-server-certs
 docker volume inspect ucp-server-certs
@@ -147,7 +147,7 @@ logout
 ubuntu@ip-172-31-39-14:~$
 </code></pre>
 
-<p>Now when we install UCP using the default interactive mode, the installer will reuse the volume `ucp-server-certs` and the certificate files inside it</p>
+<p>Now when we install UCP using the default interactive mode, the installer will reuse the volume <code>ucp-server-certs</code> and the certificate files inside it</p>
 
 <pre><code>
 ubuntu@ip-172-31-39-14:~$ docker run -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i
