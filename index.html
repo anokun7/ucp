@@ -34,13 +34,56 @@
 <h3>
 <a id="default-installation" class="anchor" href="#default-installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Default installation</h3>
 
-<p>Let's make one of the nodes as the UCP server / master. The other(s) would be the agent(s) or slave(s). Installation involves installation and configuration of UCP components on both sets of nodes. Ideally in a production setup a configuration management engine such as Puppet/Chef would be leveraged to automate this task.
-To perform the installation manually, follow the steps below.
-On one of the node (preferably the beefier one, which has nothing else other than default OS and related utilities installed), run this command.
-<code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i</code></p>
+<p>Let's make one of the nodes as the UCP server / master. The other(s) would be the agent(s) or slave(s). UCP uses swarm under the hood, so the concept is the same as the "swarm manager" and the "swarm joined nodes", if you're familiar with swarm. Installation involves installation and configuration of UCP components on both sets of nodes. Ideally in a production setup a configuration management engine such as Puppet/Chef would be leveraged to automate this task.</p>
+
+<p>To perform the installation manually, follow the steps below:
+On one of the node (preferably the beefier one, which has nothing else other than default OS and related utilities installed), run this command.</p>
+
+<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i
+</code></pre>
+
+<p>You'll be prompted with questions:</p>
+
+<pre><code>Unable to find image 'dockerorca/ucp:latest' locally
+latest: Pulling from dockerorca/ucp
+
+f08f7de64c4e: Pull complete
+87a6bbaf1f90: Pull complete
+Digest: sha256:ed7e723c1a42d0b09b3b7e2743dd61543140363c6aa18c5ea9856fca823f3be8
+Status: Downloaded newer image for dockerorca/ucp:latest
+INFO[0000] Verifying your system is compatible with UCP
+Please choose your initial Orca admin password:
+Confirm your initial password:
+INFO[0010] Pulling required images
+Please enter your Docker Hub username: anoop
+Please enter your Docker Hub password:
+Please enter your Docker Hub e-mail address: xxxanoop@xxl.com
+INFO[0044] Pulling required images
+WARN[0055] None of the hostnames we'll be using in the UCP certificates [ip-172-31-39-14 127.0.0.1 172.17.0.1 172.31.39.14] contain a domain component.  Your generated certs may fail TLS validation unless you only use one of these shortnames or IPs to connect.  You can use the --san flag to add more aliases
+
+You may enter additional aliases (SANs) now or press enter to proceed with the above list.
+Additional aliases: ec2-xx-xx-115-5.compute-1.amazonaws.com
+INFO[0065] Installing UCP with host address 172.31.39.14 - If this is incorrect, please use the '--host-address' flag to specify a different address
+INFO[0003] Generating Swarm Root CA
+INFO[0015] Generating UCP Root CA
+INFO[0017] Deploying UCP Containers
+INFO[0023] UCP instance ID: 4F5R:LFCQ:LPTF:XOCL:G3L4:JEVR:LUIP:RZDW:42U6:3ZBE:PLN2:IEDG
+INFO[0023] UCP Server SSL: SHA1 Fingerprint=81:A0:50:E6:39:EC:A1:34:D9:95:CD:F3:42:C7:68:9B:FD:57:69:36
+INFO[0023] Login as "admin"/(your admin password) to UCP at https://172.31.39.14:443
+</code></pre>
+
+<p>If, like me, you love to see what's going on under the hood or for the purposes of troubleshooting, add the <code>--debug</code> flag like below:</p>
+
+<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i --debug
+</code></pre>
 
 <h3>
 <a id="re-installing-when-things-go-wrong-or-just-for-the-heck-of-it" class="anchor" href="#re-installing-when-things-go-wrong-or-just-for-the-heck-of-it" aria-hidden="true"><span class="octicon octicon-link"></span></a>Re-installing (when things go wrong or just for the heck of it)</h3>
+
+<p>If you want to reinstall UCP there are two ways to do that. The automated way is to just run the command below:</p>
+
+<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i --fresh-install
+</code></pre>
 
 <h3>
 <a id="uninstalling" class="anchor" href="#uninstalling" aria-hidden="true"><span class="octicon octicon-link"></span></a>Uninstalling</h3>
