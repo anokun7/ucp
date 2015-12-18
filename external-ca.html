@@ -34,11 +34,10 @@
 <li>A CA to sign server certificates. Alternatively, we'll use <code>openssl</code> to perform the CA stuff. Other options are cacerts.com, EJBCA etc.</li>
 </ul>
 
-<h3>
-<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h3>
+<h3><a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h3>
 <p>UCP uses two sets of TLS certificates for access control purposes. The reason is to reduce risk such that a compromise of one set does not endanger the other. Each set of certificates is managed through a distinct CA. One set is for the communication between UCP and the built in swarm component, the other set is for the UCP controller itself. The certificates used for the UCP controller are used by UCP to provide access to the UI (user interface through the browser) and to the Docker engine's remote API. It is possible to replace this set of certificates with an organization's externally signed certificate (signed by their own Certificate Authority (CA) as opposed to the internal CA bundled with UCP). The certificates used for Swarm, however, cannot be replaced with external CA certificates at this time.</p>
 <p> In order to use the external CA signed certificates for the UCP controller, we'll have to install UCP in a slightly different manner, which is the focus of this post. To understand how to install UCP in default mode, to use the default built-in certificates / CA, follow <a class="anchor" href="http://anokun7.github.io/ucp" aria-hidden="true">this post</a> instead.</p>
-<a id="setup-ca" class="anchor" href="#setup-ca" aria-hidden="true"><span class="octicon octicon-link"></span></a>Setup CA (using openssl)</h3>
+<h3><a id="setup-ca" class="anchor" href="#setup-ca" aria-hidden="true"><span class="octicon octicon-link"></span></a>Setup CA (using openssl)</h3>
 
 <p>This section deals with the somewhat unrelated to UCP step of setting up a CA and signing server certificates. But in the interests of documentation the entire procedure, I'm using two nodes. One of the nodes will be the dedicated CA server and the other will be used to stand up UCP using certificates signed by the CA server. Also as a personal challenge, I'll be using <code>openssl</code> to do the following as part of the CA setup:</p>
 <ol>
@@ -185,6 +184,11 @@ INFO[0023] Login as "admin"/(your admin password) to UCP at https://172.31.39.14
 ubuntu@ip-172-31-39-14:~$
 </code></pre>
 
+<h3><a id="verification" class="anchor" href="#verification" aria-hidden="true"><span class="octicon octicon-link"></span></a>How to verify that this worked.</h3>
+<p>In a browser, navigate to the UCP url: http://ec2-xx-xx-115-5.compute-1.amazonaws.com. Accept warnings to continue in insecure mode. This is expected because we are using self-signed certificates which are not trusted by the browser. View the certificate information by clicking on the lock icon. Below is a example using the Chrome browser</p>
+<img src="http://anokun7.github.io/ucp/images/click-on-lock.png"/>
+<img src="http://anokun7.github.io/ucp/images/cert-details.png"/>
+<p>You should see the information you entered during the CSR generation for your UCP server.</p>
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/anokun7/ucp">Docker Universal Control Plane (UCP)</a> is maintained by <a href="https://github.com/anokun7">anokun7</a>.</span>
 
