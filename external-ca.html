@@ -31,23 +31,132 @@
 <li>Account on Docker Hub (Create an account at <a href="https://hub.docker.com/">https://hub.docker.com/</a> if you do not have one)</li>
 <li>Access to super user mode (sudo or root)</li>
 <li>(Ability to) Open firewall ports (incoming into the UCP master: 443, 2376, 12376, 12379, 12380, 12381, 12382)</li>
-<li>A CA to sign server certificates. Alternatively, we'll use `openssl` to perform the CA stuff</li>
+<li>A CA to sign server certificates. Alternatively, we'll use `openssl` to perform the CA stuff. Other options are cacerts.com, EJBCA etc.</li>
 </ul>
 
 <h3>
-<a id="default-installation" class="anchor" href="#default-installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Default installation</h3>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h3>
+<p>UCP uses two sets of TLS certificates for access control purposes. The reason is to reduce risk such that a compromise of one set does not endanger the other. Each set of certificates is managed through a distinct CA. One set is for the communication between UCP and the built in swarm component, the other set is for the UCP controller itself. The certificates used for the UCP controller are used by UCP to provide access to the UI (user interface through the browser) and to the Docker engine's remote API. It is possible to replace this set of certificates with an organization's externally signed certificate (signed by their own Certificate Authority (CA) as opposed to the internal CA bundled with UCP). The certificates used for Swarm, however, cannot be replaced with external CA certificates at this time.</p>
+<p> In order to use the external CA signed certificates for the UCP controller, we'll have to install UCP in a slightly different manner, which is the focus of this post. To understand how to install UCP in default mode, to use the default built-in certificates / CA, follow <a class="anchor" href="http://anokun7.github.io/ucp" aria-hidden="true">this post</a> instead.</p>
+<a id="setup-ca" class="anchor" href="#setup-ca" aria-hidden="true"><span class="octicon octicon-link"></span></a>Setup CA (using openssl)</h3>
 
-<p>Let's make one of the nodes as the UCP server / master. The other(s) would be the agent(s) or slave(s). UCP uses swarm under the hood, so the concept is the same as the "swarm manager" and the "swarm joined nodes", if you're familiar with swarm. Installation involves installation and configuration of UCP components on both sets of nodes. Ideally in a production setup a configuration management engine such as Puppet/Chef would be leveraged to automate this task.</p>
-
-<p>To perform the installation manually, follow the steps below:
-On one of the node (preferably the beefier one, which has nothing else other than default OS and related utilities installed), run this command.</p>
-
-<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i
+<p>This section deals with the somewhat unrelated to UCP step of setting up a CA and signing server certificates. But in the interests of documentation the entire procedure, I'm using two nodes. One of the nodes will be the dedicated CA server and the other will be used to stand up UCP using certificates signed by the CA server. Also as a personal challenge, I'll be using `openssl` to do the following as part of the CA setup:</p>
+<ol>
+	<li>Create a CA key pair and use the private key to sign the CA certificate</li>
+	<li>Use the CA to create a key pair for the UCP server, which includes the UCP private key, UCP csr and a signed (by the CA) certificate</li>
+</ol>
+<h4>Create a CA key pair</h4>
+<pre><code>
+[root@ip-172-31-36-61 ~]# openssl genrsa -out CAkey.pem 2048
+Generating RSA private key, 2048 bit long modulus
+..........................................................................................................................................................................+++
+..........................................................................+++
+e is 65537 (0x10001)
+</code></pre>
+<h4>Use the CA private key to sign the CA certificate</h4>
+<pre><code>
+[root@ip-172-31-36-61 ~]# openssl req -new -key CAkey.pem -x509 -days 3650 -out ca.pem
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [XX]:US
+State or Province Name (full name) []:VA
+Locality Name (eg, city) [Default City]:Dulles
+Organization Name (eg, company) [Default Company Ltd]:IT
+Organizational Unit Name (eg, section) []:IT
+Common Name (eg, your name or your server's hostname) []:ec2-xx-xxx-199-238.compute-1.amazonaws.com
+Email Address []:abc@aa.com
+[root@ip-172-31-36-61 ~]# openssl genrsa -out UCPkey.pem 2048
+Generating RSA private key, 2048 bit long modulus
+.....+++
+..............+++
+e is 65537 (0x10001)
+</code></pre>
+<h4>Use the CA to create a key pair and csr for the UCP server</h4>
+<pre><code>
+[root@ip-172-31-36-61 ~]# openssl req -subj "/CN=ec2-xx-xx-115-5.compute-1.amazonaws.com" -new -key UCPkey.pem -out UCP.csr
+</code></pre>
+<h4>Use the CA to sign the csr</h4>
+<pre><code>
+[root@ip-172-31-36-61 ~]# openssl x509 -req -days 3650 -in UCP.csr -CA ca.pem -CAkey CAkey.pem -CAcreateserial -out UCPcrt.pem -extensions v3_req
+Signature ok
+subject=/CN=ec2-xx-xx-115-5.compute-1.amazonaws.com
+Getting CA Private Key
+</code></pre>
+<h4>Remove the passphrase from the UCP server's private key</h4>
+<pre><code>
+[root@ip-172-31-36-61 ~]# openssl rsa -in UCPkey.pem -out UCPkey.pem
+writing RSA key
+</code></pre>
+<p>These are all the files generated in the steps above:</p>
+<pre><code>
+[root@ip-172-31-36-61 ~]# ll
+total 36
+-rw-r--r--. 1 root root 1675 Dec 17 17:58 CAkey.pem
+-rw-r--r--. 1 root root 1448 Dec 17 18:01 ca.pem
+-rw-r--r--. 1 root root   17 Dec 17 18:06 ca.srl
+-rw-r--r--. 1 root root 1192 Dec 17 18:06 UCPcrt.pem
+-rw-r--r--. 1 root root  932 Dec 17 18:04 UCP.csr
+-rw-r--r--. 1 root root 1675 Dec 17 18:07 UCPkey.pem
+</code></pre>
+<p>Copy the files from the previous step to the UCP server. <i>Do not copy the CAkey.pem file, this is the CA private key and should not be shared.</i></p>
+<pre><code>
+[root@ip-172-31-36-61 ~]# scp -r /var/tmp/* ubuntu@ec2-xx-xx-115-5.compute-1.amazonaws.com:/var/tmp/
+UCP.csr                          100%  932     0.9KB/s   00:00
+UCPcrt.pem                       100% 1192     1.2KB/s   00:00
+UCPkey.pem                       100% 1675     1.6KB/s   00:00
+ca.pem                           100% 1448     1.4KB/s   00:00
+ca.srl                           100%   17     0.0KB/s   00:00
 </code></pre>
 
-<p>You'll be prompted for additional information:</p>
+<h4>Before installing UCP, setup a named volume to host the certificates and the UCP server's key. Follow the steps below:</h4>
+<p>Use `docker volume` to create a named volume `ucp-server-certs`. This volume will be used to hold the external certificates before starting the installation of the UCP server</p>
+<pre><code>
+ubuntu@ip-172-31-39-14:~$ docker volume create --name ucp-server-certs
+ucp-server-certs
+</code></pre>
+<p>To determine the `Mountpoint` of the volume just created, use the `docker volume inspect` command as below. This returns a json and the value of the `Mountpoint` attribute is the path where the certificate files should be placed.</p>
+<pre><code>
+ubuntu@ip-172-31-39-14:~$ docker volume inspect ucp-server-certs
+docker volume inspect ucp-server-certs
+[
+    {
+        "Name": "ucp-server-certs",
+        "Driver": "local",
+        "Mountpoint": "/var/lib/docker/volumes/ucp-server-certs/_data"
+    }
+]
+ubuntu@ip-172-31-39-14:~$ sudo su -
+root@ip-172-31-39-14:~# cd /var/lib/docker/volumes/ucp-server-certs/_data
+root@ip-172-31-39-14:/var/lib/docker/volumes/ucp-server-certs/_data# cp /var/tmp/ca.pem .
+root@ip-172-31-39-14:/var/lib/docker/volumes/ucp-server-certs/_data# cp /var/tmp/UCPcrt.pem cert.pem
+root@ip-172-31-39-14:/var/lib/docker/volumes/ucp-server-certs/_data# cp /var/tmp/UCPkey.pem key.pem
+root@ip-172-31-39-14:/var/lib/docker/volumes/ucp-server-certs/_data# ll
+total 20
+drwxr-xr-x 2 root root 4096 Dec 17 23:28 ./
+drwxr-xr-x 3 root root 4096 Dec 17 23:22 ../
+-rw-r--r-- 1 root root 1448 Dec 17 23:27 ca.pem
+-rw-r--r-- 1 root root 1192 Dec 17 23:27 cert.pem
+-rw-r--r-- 1 root root 1675 Dec 17 23:28 key.pem
+root@ip-172-31-39-14:/var/lib/docker/volumes/ucp-server-certs/_data# exit
+logout
+ubuntu@ip-172-31-39-14:~$
+</code></pre>
+
+<p>Now when we install UCP using the default interactive mode, the installer will reuse the volume `ucp-server-certs` and the certificate files inside it</p>
+
+<pre><code>
+ubuntu@ip-172-31-39-14:~$ docker run -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i
+</code></pre>
+
+<p>You'll be prompted for additional information just as in a default installation:</p>
 
 <pre><code>Unable to find image 'dockerorca/ucp:latest' locally
+Unable to find image 'dockerorca/ucp:latest' locally
 latest: Pulling from dockerorca/ucp
 
 f08f7de64c4e: Pull complete
@@ -60,7 +169,7 @@ Confirm your initial password:
 INFO[0010] Pulling required images
 Please enter your Docker Hub username: anoop
 Please enter your Docker Hub password:
-Please enter your Docker Hub e-mail address: xxxanoop@xxl.com
+Please enter your Docker Hub e-mail address: hello2anoop@gmail.com
 INFO[0044] Pulling required images
 WARN[0055] None of the hostnames we'll be using in the UCP certificates [ip-172-31-39-14 127.0.0.1 172.17.0.1 172.31.39.14] contain a domain component.  Your generated certs may fail TLS validation unless you only use one of these shortnames or IPs to connect.  You can use the --san flag to add more aliases
 
@@ -73,46 +182,8 @@ INFO[0017] Deploying UCP Containers
 INFO[0023] UCP instance ID: 4F5R:LFCQ:LPTF:XOCL:G3L4:JEVR:LUIP:RZDW:42U6:3ZBE:PLN2:IEDG
 INFO[0023] UCP Server SSL: SHA1 Fingerprint=81:A0:50:E6:39:EC:A1:34:D9:95:CD:F3:42:C7:68:9B:FD:57:69:36
 INFO[0023] Login as "admin"/(your admin password) to UCP at https://172.31.39.14:443
+ubuntu@ip-172-31-39-14:~$
 </code></pre>
-
-<p>If, like me, you love to see what's going on under the hood or in the event you need to troubleshoot issues, add the <code>--debug</code> flag like below:</p>
-
-<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i --debug
-</code></pre>
-
-<h3>
-<a id="re-installing-when-things-go-wrong-or-just-for-the-heck-of-it" class="anchor" href="#re-installing-when-things-go-wrong-or-just-for-the-heck-of-it" aria-hidden="true"><span class="octicon octicon-link"></span></a>Re-installing (when things go wrong or just for the heck of it)</h3>
-
-<p>If you want to reinstall UCP there are two ways to do that. The automated way is to just run the command below:</p>
-
-<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i --fresh-install
-</code></pre>
-
-<p>The <code>--fresh-install</code> flag will ensure that the environment is cleaned of all ucp related containers, images and volumes.</p>
-
-<p>You could do the same manually using the commands below (warning: this may delete data, use at your own risk)</p>
-
-<pre><code>docker rm -f $(docker ps -qa) &amp;&amp; docker rmi -f $(docker images -qa) &amp;&amp; docker volume rm $(docker volume ls -q)
-</code></pre>
-
-<p>And then use the same command as above to re-run with <code>install -i</code>.</p>
-
-<h3>
-<a id="uninstalling" class="anchor" href="#uninstalling" aria-hidden="true"><span class="octicon octicon-link"></span></a>Uninstalling</h3>
-
-<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp uninstall
-</code></pre>
-
-<h3>
-<a id="external-ca" class="anchor" href="#external-ca" aria-hidden="true"><span class="octicon octicon-link"></span></a>External CA</h3>
-
-<p>In many large &amp; federal organizations, it is expected that they have an in-house Certificate Authority and issue organizational CA-signed certificates. In such cases, it may be necessary to integrate UCP with the the external certificates as opposed to the default mode where the UCP server generates its own self-signed certificates. <a href="http://anokun7.github.io/ucp/external-ca">Read more...</a></p>
-
-<h3>
-<a id="external-logging" class="anchor" href="#external-logging" aria-hidden="true"><span class="octicon octicon-link"></span></a>External Logging</h3>
-
-<h3>
-<a id="external-user-repository-ldap" class="anchor" href="#external-user-repository-ldap" aria-hidden="true"><span class="octicon octicon-link"></span></a>External User repository (LDAP)</h3>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/anokun7/ucp">Docker Universal Control Plane (UCP)</a> is maintained by <a href="https://github.com/anokun7">anokun7</a>.</span>
