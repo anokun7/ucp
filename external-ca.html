@@ -1,1 +1,136 @@
-<b>Hello World</b>
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Docker Universal Control Plane (UCP) by anokun7</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Docker Universal Control Plane (UCP)</h1>
+      <h2 class="project-tagline">Learn about the finer aspects of the Docker Universal Control Plane (UCP) including hands-on demos, tips, examples and best practices</h2>
+      <h2 class="project-tagline">Integrate with user provided externally signed certificates for the UCP Controller</h2>
+      <a href="https://github.com/anokun7/ucp" class="btn">View on GitHub</a>
+      <a href="https://github.com/anokun7/ucp/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/anokun7/ucp/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <h3>
+<a id="prerequisites-to-installing-docker-ucp" class="anchor" href="#prerequisites-to-installing-docker-ucp" aria-hidden="true"><span class="octicon octicon-link"></span></a>Prerequisites to installing Docker UCP</h3>
+
+<p>The following pre-requisites are for UCP v 0.5 (beta). Some of these could change once UCP hits GA, but it is quite unlikely.</p>
+
+<ul>
+<li>Linux kernel 3.16 or later. (Older kernel versions will work with UCP, but &gt;=3.16 is required if you want to leverage docker's uber cool multi host networking capabilities.)</li>
+<li>Docker version &gt;=1.9 pre-installed on all nodes (Recommend that at least 2 nodes are available)</li>
+<li>Account on Docker Hub (Create an account at <a href="https://hub.docker.com/">https://hub.docker.com/</a> if you do not have one)</li>
+<li>Access to super user mode (sudo or root)</li>
+<li>(Ability to) Open firewall ports (incoming into the UCP master: 443, 2376, 12376, 12379, 12380, 12381, 12382)</li>
+</ul>
+
+<h3>
+<a id="default-installation" class="anchor" href="#default-installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Default installation</h3>
+
+<p>Let's make one of the nodes as the UCP server / master. The other(s) would be the agent(s) or slave(s). UCP uses swarm under the hood, so the concept is the same as the "swarm manager" and the "swarm joined nodes", if you're familiar with swarm. Installation involves installation and configuration of UCP components on both sets of nodes. Ideally in a production setup a configuration management engine such as Puppet/Chef would be leveraged to automate this task.</p>
+
+<p>To perform the installation manually, follow the steps below:
+On one of the node (preferably the beefier one, which has nothing else other than default OS and related utilities installed), run this command.</p>
+
+<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i
+</code></pre>
+
+<p>You'll be prompted for additional information:</p>
+
+<pre><code>Unable to find image 'dockerorca/ucp:latest' locally
+latest: Pulling from dockerorca/ucp
+
+f08f7de64c4e: Pull complete
+87a6bbaf1f90: Pull complete
+Digest: sha256:ed7e723c1a42d0b09b3b7e2743dd61543140363c6aa18c5ea9856fca823f3be8
+Status: Downloaded newer image for dockerorca/ucp:latest
+INFO[0000] Verifying your system is compatible with UCP
+Please choose your initial Orca admin password:
+Confirm your initial password:
+INFO[0010] Pulling required images
+Please enter your Docker Hub username: anoop
+Please enter your Docker Hub password:
+Please enter your Docker Hub e-mail address: xxxanoop@xxl.com
+INFO[0044] Pulling required images
+WARN[0055] None of the hostnames we'll be using in the UCP certificates [ip-172-31-39-14 127.0.0.1 172.17.0.1 172.31.39.14] contain a domain component.  Your generated certs may fail TLS validation unless you only use one of these shortnames or IPs to connect.  You can use the --san flag to add more aliases
+
+You may enter additional aliases (SANs) now or press enter to proceed with the above list.
+Additional aliases: ec2-xx-xx-115-5.compute-1.amazonaws.com
+INFO[0065] Installing UCP with host address 172.31.39.14 - If this is incorrect, please use the '--host-address' flag to specify a different address
+INFO[0003] Generating Swarm Root CA
+INFO[0015] Generating UCP Root CA
+INFO[0017] Deploying UCP Containers
+INFO[0023] UCP instance ID: 4F5R:LFCQ:LPTF:XOCL:G3L4:JEVR:LUIP:RZDW:42U6:3ZBE:PLN2:IEDG
+INFO[0023] UCP Server SSL: SHA1 Fingerprint=81:A0:50:E6:39:EC:A1:34:D9:95:CD:F3:42:C7:68:9B:FD:57:69:36
+INFO[0023] Login as "admin"/(your admin password) to UCP at https://172.31.39.14:443
+</code></pre>
+
+<p>If, like me, you love to see what's going on under the hood or in the event you need to troubleshoot issues, add the <code>--debug</code> flag like below:</p>
+
+<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i --debug
+</code></pre>
+
+<h3>
+<a id="re-installing-when-things-go-wrong-or-just-for-the-heck-of-it" class="anchor" href="#re-installing-when-things-go-wrong-or-just-for-the-heck-of-it" aria-hidden="true"><span class="octicon octicon-link"></span></a>Re-installing (when things go wrong or just for the heck of it)</h3>
+
+<p>If you want to reinstall UCP there are two ways to do that. The automated way is to just run the command below:</p>
+
+<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp install -i --fresh-install
+</code></pre>
+
+<p>The <code>--fresh-install</code> flag will ensure that the environment is cleaned of all ucp related containers, images and volumes.</p>
+
+<p>You could do the same manually using the commands below (warning: this may delete data, use at your own risk)</p>
+
+<pre><code>docker rm -f $(docker ps -qa) &amp;&amp; docker rmi -f $(docker images -qa) &amp;&amp; docker volume rm $(docker volume ls -q)
+</code></pre>
+
+<p>And then use the same command as above to re-run with <code>install -i</code>.</p>
+
+<h3>
+<a id="uninstalling" class="anchor" href="#uninstalling" aria-hidden="true"><span class="octicon octicon-link"></span></a>Uninstalling</h3>
+
+<pre><code>docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --name ucp dockerorca/ucp uninstall
+</code></pre>
+
+<h3>
+<a id="external-ca" class="anchor" href="#external-ca" aria-hidden="true"><span class="octicon octicon-link"></span></a>External CA</h3>
+
+<p>In many large &amp; federal organizations, it is expected that they have an in-house Certificate Authority and issue organizational CA-signed certificates. In such cases, it may be necessary to integrate UCP with the the external certificates as opposed to the default mode where the UCP server generates its own self-signed certificates. <a href="http://anokun7.github.io/ucp/external-ca">Read more...</a></p>
+
+<h3>
+<a id="external-logging" class="anchor" href="#external-logging" aria-hidden="true"><span class="octicon octicon-link"></span></a>External Logging</h3>
+
+<h3>
+<a id="external-user-repository-ldap" class="anchor" href="#external-user-repository-ldap" aria-hidden="true"><span class="octicon octicon-link"></span></a>External User repository (LDAP)</h3>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/anokun7/ucp">Docker Universal Control Plane (UCP)</a> is maintained by <a href="https://github.com/anokun7">anokun7</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+            <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-1020564-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+  </body>
+</html>
